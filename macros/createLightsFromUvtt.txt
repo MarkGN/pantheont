@@ -1,0 +1,10 @@
+[h: names=getTokenNames(",")]
+[FOREACH(name, names), code: {
+	[h:test=startsWith(name,"light")]
+	[h,if(test),code:{
+		[h:impersonate(name)]
+		[h: setLight("D20", "Lamp - 15", 1)]
+	}
+	]
+}
+]

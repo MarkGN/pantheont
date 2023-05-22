@@ -1,5 +1,7 @@
+import base64
+import io
 from PIL import Image, ImageDraw, ImageFont
-import random
+import random, simplejson
 
 # TODO add lifespan?
 class Species:
@@ -19,7 +21,7 @@ def vary(x):
   return random.randint(-x,x)
 
 def build_forest(params={}):
-  sx,sy = size = params.get("size", (5000,5000))
+  sx,sy = size = params.get("size", (500,500))
   density = params.get("density", 1)
   grass_color = (75,255,75)
   out = Image.new("RGB", size, grass_color)
@@ -45,11 +47,49 @@ def build_forest(params={}):
 
   for ((x,y),tree) in trees.items():
     d.ellipse([(x-tree.x_rad, y-tree.y_rad), (x+tree.x_rad, y+tree.y_rad)], fill=tree.color)
-  
-  out.show()
-  
+
+  # out.show()
+  return out
+
 def is_overlap(t1, x1,y1, t2, x2,y2):
   return 2*(x1-x2)**2 + (y1-y2)**2 < (t1.x_rad + t2.x_rad)**2 + (t1.y_rad + t2.y_rad)**2
 
 if __name__=="__main__":
-  build_forest()
+  image = build_forest(params={"size":(500,500)})
+  buffer = io.BytesIO()
+  image.save(buffer, format="PNG")
+  base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+  f = open("img.uvtt", "w")
+  myjson = {"software": "Pantheont",
+    "creator": "Mark Norrish",
+    "format": "0.3",
+    "resolution": {
+    "map_origin": {
+      "x": 0,
+      "y": 0
+    },
+    "map_size": {
+      "x": 10,
+      "y": 10
+    },
+      "pixels_per_grid": 50
+    },
+      "line_of_sight": [],
+      "portals":[],
+      "environment": {
+      "baked_lighting": False
+    },
+    "lights":
+      [],
+    "image": base64_image
+  }
+  f.write(simplejson.dumps(myjson, indent=2))
+  f.close()
+
+def forest_2():
+  # define size, etc
+  # create a path from (x/3,0),(2x/3,y/3),(x/3,2y/3),(2x/3,y), or a rotation or reflection of that, like 50px wide
+  # create a stream from (0,y/3),(x/3,2y/3),(2x/3,y/3),(x,2y/3), rotated
+  # create 2 clearings somewhere
+  # populate forest land with trees
+  return

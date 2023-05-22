@@ -60,7 +60,7 @@ def random_name_fst(params={}):
       return name_from_lists([(pre_consonant_consonants, 0), (post_consonant_consonants, 1), (feminine_suffix_vowels, 1), (feminine_terminal_consonants, 0)])
     if seed < 0.3:
       return name_from_lists([(initial_consonants, 1), (feminine_suffix_vowels, 1), (feminine_terminal_consonants, 0)])
-    if seed < 0.4 or True:
+    if seed < 0.4:
       return name_from_lists([(initial_consonants, 1), (vowels, 1), (" ", 1), (pre_consonant_consonants, 0), (post_consonant_consonants, 1), (feminine_suffix_vowels, 1), (feminine_terminal_consonants, 0)])
     if seed < 0.7:
       return name_from_lists([(initial_consonants, 0), (vowels, 1), (middle_consonant_clusters, 1), (feminine_suffix_vowels, 1), (feminine_terminal_consonants, 0)])

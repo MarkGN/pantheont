@@ -30,7 +30,7 @@ class Character:
   def __init__(self, params):
     for key, value in params.items():
       setattr(self, key, value)
-    self.name = name_generator.random_name_kana()
+    self.name = name_generator.random_name_kana().capitalize()
 
   def __str__(self) -> str:
     return f"{self.name}: " + ", ".join([f"{attr}: {getattr(self, attr)}" for attr in stats]) + f". Boons: {self.boons}"
