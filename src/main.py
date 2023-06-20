@@ -1,6 +1,6 @@
 import random
 
-default_focus = 9
+default_focus = 14
 die_sides = 20
 damage_die_sides = 6
 
@@ -82,40 +82,40 @@ if __name__ == "__main__":
   #   print(es[i]/es[i+1])
   # print(expected_hits_to_incap(150,0)[130:])
 
-  print("Expected hits to incapacitate")
-  print([(i,expected_hits_to_incap(0, i)[-1]) for i in range(default_focus+1)])
+  # print("Expected hits to incapacitate")
+  # print([(i,expected_hits_to_incap(0, i)[-1]) for i in range(default_focus+1)])
 
-  print("Win chances for AGI POW END")
+  # print("Win chances for AGI POW END")
 
-  print(p_win_v_trapper(0,0,0))
-  print("AGI")
-  print(p_win(1,0,0))
-  print(p_win(3,0,0))
-  print(p_win(5,0,0))
-  print("vs trapper")
-  print(p_win_v_trapper(1,0,0))
-  print(p_win_v_trapper(3,0,0))
-  print(p_win_v_trapper(5,0,0))
-  print("POW")
-  print(p_win(0,1,0))
-  print(p_win(0,3,0))
-  print(p_win(0,5,0))
-  print("vs trapper")
-  print(p_win_v_trapper(0,1,0))
-  print(p_win_v_trapper(0,3,0))
-  print(p_win_v_trapper(0,5,0))
+  # print(p_win_v_trapper(0,0,0))
+  # print("AGI")
+  # print(p_win(1,0,0))
+  # print(p_win(3,0,0))
+  # print(p_win(5,0,0))
+  # print("vs trapper")
+  # print(p_win_v_trapper(1,0,0))
+  # print(p_win_v_trapper(3,0,0))
+  # print(p_win_v_trapper(5,0,0))
+  # print("POW")
+  # print(p_win(0,1,0))
+  # print(p_win(0,3,0))
+  # print(p_win(0,5,0))
+  # print("vs trapper")
+  # print(p_win_v_trapper(0,1,0))
+  # print(p_win_v_trapper(0,3,0))
+  # print(p_win_v_trapper(0,5,0))
   # print("POW w overwhelming")
   # print(p_win(0,1,0,my_boons = ["overwhelm"]))
   # print(p_win(0,3,0,my_boons = ["overwhelm"]))
   # print(p_win(0,5,0,my_boons = ["overwhelm"]))
-  print("END")
-  print(p_win(0,0,1))
-  print(p_win(0,0,3))
-  print(p_win(0,0,5))
-  print("vs trapper")
-  print(p_win_v_trapper(0,0,1))
-  print(p_win_v_trapper(0,0,3))
-  print(p_win_v_trapper(0,0,5))
+  # print("END")
+  # print(p_win(0,0,1))
+  # print(p_win(0,0,3))
+  # print(p_win(0,0,5))
+  # print("vs trapper")
+  # print(p_win_v_trapper(0,0,1))
+  # print(p_win_v_trapper(0,0,3))
+  # print(p_win_v_trapper(0,0,5))
 
   # print(p_win(0,0,0, my_boons = ["overwhelm", "stubborn"]))
   # print(p_win(0,0,0, my_boons = ["overwhelm"]))
@@ -145,8 +145,8 @@ if __name__ == "__main__":
   # print(p_win(-5,5,0))
   # print(p_win(-5,5,0,my_boons = ["overwhelm"]))
 
-  # for i in range(-4,5):
-  #   print(i, expected_overkill(i))
+  for i in range(-4,5):
+    print(i, expected_overkill(i))
 
   # for (t,herb) in [("active", "fruit"), ("amper", "leaf"), ("damper", "root"), ("preservative", "resin")]:
   #   for _ in range(3):
