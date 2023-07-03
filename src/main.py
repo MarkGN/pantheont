@@ -1,20 +1,31 @@
 import random
 
-default_focus = 14
-die_sides = 20
+default_focus = 9
+die_sides = 28
 damage_die_sides = 6
+damage_offset = 0
 
 class Character:
   def __init__(self, pow=5, end=5, boons=[]) -> None:
     pass
 
 def dmg_range(pow_adv):
-  return [0+max(1, pow_adv+i) for i in range(1, damage_die_sides + 1)]
+  return [max(1, pow_adv+damage_offset+i) for i in range(1, damage_die_sides+1)]
 
 def expected_hits_to_incap(pow_adv=0, focus=default_focus):
   hits = [0 for _ in range(focus+1)]
   for i in range(1,focus+1):
     hits[i] = sum([hits[max(0, i-d)] for d in dmg_range(pow_adv)])/damage_die_sides + 1
+  return hits
+
+def p_hits_to_incap(pow_adv=0, focus=default_focus):
+  hits = [None for _ in range(focus+1)]
+  hits[0] = [(0,1)],0 # n_hits:p_n
+  for i in range(1,focus+1):
+    ns_ps = [(n+1, p) for dmg in dmg_range(pow_adv) for (n,p) in hits[max(0,i-dmg)][0]]
+    ns = list(set([n for (n,_) in ns_ps]))
+    ns_ps_summed = [(n, sum([p for (n0,p) in ns_ps if n==n0])/damage_die_sides) for n in ns]
+    hits[i] = (ns_ps_summed, sum([n*p for (n,p) in ns_ps_summed]))
   return hits
 
 def expected_overkill(pow_adv, focus=default_focus):
@@ -76,6 +87,9 @@ def p_win_monte_carlo(its, combat_adv, pow_adv, end_adv, focus=14, my_boons={}, 
 
 if __name__ == "__main__":
   pass
+  p = p_hits_to_incap()
+  for l in p:
+    print(l)
   # es = [expected_hits_to_incap(i)[-1] for i in range(-5,6)]
   # print(es)
   # for i in range(len(es)-1):
@@ -140,13 +154,12 @@ if __name__ == "__main__":
   # print(p_win(1,0,-1))
   # print(p_win(1,-1,0))
   # print("+POW, -AGI")
-  # print(p_win(-1,1,0))
-  # print(p_win(-1,1,0,my_boons = ["overwhelm"]))
-  # print(p_win(-5,5,0))
-  # print(p_win(-5,5,0,my_boons = ["overwhelm"]))
+  # for i in range(1,6):
+  #   print(p_win(-i,i,0))
+  #   print(p_win(-i,i,0,my_boons = ["overwhelm"]))
 
-  for i in range(-4,5):
-    print(i, expected_overkill(i))
+  # for i in range(-4,5):
+  #   print(i, expected_overkill(i))
 
   # for (t,herb) in [("active", "fruit"), ("amper", "leaf"), ("damper", "root"), ("preservative", "resin")]:
   #   for _ in range(3):

@@ -31,6 +31,9 @@ def is_in_river(px, py, river):
   polygon = Polygon(river)
   return polygon.contains(point)
 
+#TODO add parameters
+#TODO This is a lousy algorithm: the stream can self-intersect.
+# For these parameters, it usually doesn't, but I should rewrite so that it can't.
 def build_river(params={}):
   w = params.get("map-width", 100)
   seg_length = 60
@@ -53,12 +56,15 @@ def build_river(params={}):
   return pts + rev_pts
 
 # TODO factor stuff out, like creating trees
-# TODO So this is pretty cool, but it'd 
+# TODO So this is pretty cool, but it'd be nice to be able to say:
+# 1) I want grass, trees;
+# 2) I want a clearing, maybe even with some traveller bedrolls;
+# 3) I want a stream, which might even branch
+# ... and it'd be nice to wrap it in a separate function creating multiple terrains,
+# so that eg I could have a cave system
+# ... How would a cave look? These dense forests are open-ish, in that you can go in many directions but it's always hard going; a cave has a limited number of routes.
+# Maybe have multiple rooms, with twisting corridors between? How? Just have one or two bends? Plus maybe the odd dead end?
 def build_forest(params={}):
-  # TODO create a path from (x/3,0),(2x/3,y/3),(x/3,2y/3),(2x/3,y), or a rotation or reflection of that, like 50px wide
-  # create a stream from (0,y/3),(x/3,2y/3),(2x/3,y/3),(x,2y/3), rotated
-  # create 2 clearings somewhere
-  
   sx,sy = size = params.get("size", (500,500))
   density = params.get("density", 1)
   tree_thickness = params.get("tree-thick")
