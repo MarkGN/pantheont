@@ -1,7 +1,7 @@
 import random
 
 default_focus = 9
-die_sides = 28
+die_sides = 20
 damage_die_sides = 6
 damage_offset = 0
 
@@ -23,7 +23,7 @@ def p_hits_to_incap(pow_adv=0, focus=default_focus):
   hits[0] = [(0,1)],0 # n_hits:p_n
   for i in range(1,focus+1):
     ns_ps = [(n+1, p) for dmg in dmg_range(pow_adv) for (n,p) in hits[max(0,i-dmg)][0]]
-    ns = list(set([n for (n,_) in ns_ps]))
+    ns = set([n for (n,_) in ns_ps])
     ns_ps_summed = [(n, sum([p for (n0,p) in ns_ps if n==n0])/damage_die_sides) for n in ns]
     hits[i] = (ns_ps_summed, sum([n*p for (n,p) in ns_ps_summed]))
   return hits
@@ -34,26 +34,44 @@ def expected_overkill(pow_adv, focus=default_focus):
     overkill[i] = sum([overkill[i-d] if i-d >= 0 else d-i for d in dmg_range(pow_adv)])/damage_die_sides
   return overkill
 
-# Probability that character A beats B with the given advantages, which may be negative. Both have equal focus and no boons.
-# TODO let boons include Net, 
+# Probability distribution over possible overkills
+# Entry number h is the list of overkills and probabilities from h focus
+def p_overkill(pow_adv, focus=default_focus):
+  overkill = [[(0,1)] for i in range(focus+1)]
+  for i in range(1, focus+1):
+    vs = [o for d in dmg_range(pow_adv) for o in (overkill[i-d] if i>=d else [(d-i,1)])]
+    ns = set([n for (n,_) in vs])
+    overkill[i] = [(n, sum([p for (n0,p) in vs if n==n0])/damage_die_sides) for n in ns]
+  return overkill
+
+# Probability that character A beats B with the given advantages, which may be negative.
 def p_win(combat_adv, pow_adv, end_adv, focus=default_focus, my_boons={}, his_boons={}, die=die_sides):
   # M[i][j] = p (I win given I have i focus left and he has j)
   my_focus = focus + ("stubborn" in my_boons)
-  his_focus = 8 if "minion" in his_boons else focus + ("stubborn" in his_boons)
+  his_focus = focus + ("stubborn" in his_boons)
+  overwhelm = lambda dmg, f, fmax : dmg * 4 >= 3*fmax
+  # overwhelm = lambda dmg, f, fmax: dmg * 4 >= 3*f
   p_win_clash = min(1, max(0, (die//2+combat_adv)/die))
   odds_matrix = [[0 for i in range(his_focus+1)]] + [([1]+[None for i in range(his_focus)]) for j in range(my_focus)]
   for i in range(1,my_focus+1):
     for j in range(1,his_focus+1):
       if "overwhelm" in my_boons:
-        odds_matrix[i][j] = p_win_clash * sum([odds_matrix[i][max(0,0 if 3*dmg >= 2*his_focus else j-dmg)] for dmg in dmg_range(pow_adv)])/damage_die_sides + (1-p_win_clash) * sum([odds_matrix[max(0,i-dmg)][j] for dmg in dmg_range(-end_adv)])/damage_die_sides
+        odds_matrix[i][j] = p_win_clash * sum([odds_matrix[i][max(0,0 if overwhelm(dmg,j,his_focus) else j-dmg)] for dmg in dmg_range(pow_adv)])/damage_die_sides + (1-p_win_clash) * sum([odds_matrix[max(0,i-dmg)][j] for dmg in dmg_range(-end_adv)])/damage_die_sides
       else:
         odds_matrix[i][j] = p_win_clash * sum([odds_matrix[i][max(0,j-dmg)] for dmg in dmg_range(pow_adv)])/damage_die_sides + (1-p_win_clash) * sum([odds_matrix[max(0,i-dmg)][j] for dmg in dmg_range(-end_adv)])/damage_die_sides
   return odds_matrix[my_focus][his_focus]
 
+# TODO Is there some elegant way to combine this and the above in one function?
+# Obviously "if trapper in his_boons, do this code, else that", but there's no difference.
+# The code is almost the same, but not quite, and there are plenty of almost-but-not
+# effects with the same deal.
+# TODO Trapper duels. A bit harder, since hits don't always advance the game state.
+# If I start with him trapped, then p-win = p-win-now/(p-win-now + p-lose-now*p-he-then-wins).
 def p_win_v_trapper(combat_adv, pow_adv, end_adv, focus=default_focus, die=die_sides):
   my_focus, his_focus = focus, focus
   p_win_clash = min(1, max(0, (die//2+combat_adv)/die))
-  p_win_clash_trapped = min(1, max(0, (die//2+(combat_adv-5))/die))
+  trap_disadvantage = 4
+  p_win_clash_trapped = min(1, max(0, (die//2+(combat_adv-trap_disadvantage))/die))
   odds_matrix = [[[0 for i in range(his_focus+1)]] + [([1]+[None for i in range(his_focus)]) for j in range(my_focus)] for trapped in range(2)]
   for i in range(1,my_focus+1):
     for j in range(1,his_focus+1):
@@ -85,96 +103,66 @@ def p_win_monte_carlo(its, combat_adv, pow_adv, end_adv, focus=14, my_boons={}, 
       wins += 1
   return wins/its
 
+def test_survival_time(pow_adv=0):
+  print("=== Survival time vs POW advantage {pow} ===".format(pow=pow_adv))
+  print("For each amount of hp, probabilities of going down in how many hits, and expected number")
+  p = p_hits_to_incap(pow_adv)
+  for ix,(l,exp) in enumerate (p):
+    print(ix, l, exp)
+
+def test_survival_odds():
+  print("=== Win chances ===")
+  print("Baseline: should be 0.5")
+  print(p_win(0,0,0))
+  print("With +combat")
+  for i in range(1,6):
+    print(i, p_win(i,0,0))
+  print("With +POW")
+  for i in range(1,6):
+    print(i, p_win(0,i,0))
+  print("With +POW and overwhelm")
+  for i in range(1,6):
+    print(i, p_win(0,i,0, my_boons=["overwhelm"]))
+  print("With +END")
+  for i in range(1,6):
+    print(i, p_win(0,0,i))
+  print("With +combat vs +END")
+  for i in range(1,6):
+    print(i, p_win(i,-i,0))
+  print("With +combat vs +POW")
+  for i in range(1,6):
+    print(i, p_win(i,0,-i))
+  print("With +POW and overwhelm vs +combat")
+  for i in range(0,6):
+    print(i, p_win(-i,i,0,my_boons = ["overwhelm"]))
+  print("With stubborn")
+  print(p_win(0,0,0,my_boons = ["stubborn"]))
+  print("vs a trapper")
+  print(p_win_v_trapper(0,0,0))
+  print("With +combat")
+  for i in range(1,6):
+    print(i, p_win_v_trapper(i,0,0))
+  print("With +POW")
+  for i in range(1,6):
+    print(i, p_win_v_trapper(0,i,0))
+  print("With +END")
+  for i in range(1,6):
+    print(i, p_win_v_trapper(0,0,i))
+  print("With +combat vs +END")
+  for i in range(1,6):
+    print(i, p_win_v_trapper(i,-i,0))
+  print("With +combat vs +POW")
+  for i in range(1,6):
+    print(i, p_win_v_trapper(i,0,-i))
+  
 if __name__ == "__main__":
-  pass
-  p = p_hits_to_incap()
-  for l in p:
-    print(l)
-  # es = [expected_hits_to_incap(i)[-1] for i in range(-5,6)]
-  # print(es)
-  # for i in range(len(es)-1):
-  #   print(es[i]/es[i+1])
-  # print(expected_hits_to_incap(150,0)[130:])
+  print("Params: HP {hp}, damage offset {dmg}, cards {cards}, damage die {dmg_die}".format(hp=default_focus, dmg=damage_offset, cards=die_sides, dmg_die=damage_die_sides))
+  
+  for i in range(-4,5):
+    test_survival_time(i)
+  # test_survival_odds()
 
-  # print("Expected hits to incapacitate")
-  # print([(i,expected_hits_to_incap(0, i)[-1]) for i in range(default_focus+1)])
-
-  # print("Win chances for AGI POW END")
-
-  # print(p_win_v_trapper(0,0,0))
-  # print("AGI")
-  # print(p_win(1,0,0))
-  # print(p_win(3,0,0))
-  # print(p_win(5,0,0))
-  # print("vs trapper")
-  # print(p_win_v_trapper(1,0,0))
-  # print(p_win_v_trapper(3,0,0))
-  # print(p_win_v_trapper(5,0,0))
-  # print("POW")
-  # print(p_win(0,1,0))
-  # print(p_win(0,3,0))
-  # print(p_win(0,5,0))
-  # print("vs trapper")
-  # print(p_win_v_trapper(0,1,0))
-  # print(p_win_v_trapper(0,3,0))
-  # print(p_win_v_trapper(0,5,0))
-  # print("POW w overwhelming")
-  # print(p_win(0,1,0,my_boons = ["overwhelm"]))
-  # print(p_win(0,3,0,my_boons = ["overwhelm"]))
-  # print(p_win(0,5,0,my_boons = ["overwhelm"]))
-  # print("END")
-  # print(p_win(0,0,1))
-  # print(p_win(0,0,3))
-  # print(p_win(0,0,5))
-  # print("vs trapper")
-  # print(p_win_v_trapper(0,0,1))
-  # print(p_win_v_trapper(0,0,3))
-  # print(p_win_v_trapper(0,0,5))
-
-  # print(p_win(0,0,0, my_boons = ["overwhelm", "stubborn"]))
-  # print(p_win(0,0,0, my_boons = ["overwhelm"]))
-  # print(p_win(0,0,0, my_boons = ["stubborn"]))
-
-  # print(p_win(0,0,0, my_boons = ["overwhelm"], his_boons=["minion"]))
-  # print(p_win(0,0,0, my_boons = [], his_boons=["minion"]))
-  # print(p_win(0,1,0, my_boons = ["overwhelm"], his_boons=["minion"]))
-  # print(p_win(0,1,0, my_boons = [], his_boons=["minion"]))
-  # print(p_win(0,1,0, his_boons = ["stubborn"]))
-
-  # print(p_win(-1,0,0))
-  # print(p_win(0,-1,0))
-  # print(p_win(0,0,-1))
-  # print(p_win(1,-1,0))
-  # print(p_win(1,0,-1))
-  # print(p_win(0,1,-1))
-  # print(p_win(-5,5,0))
-  # print(p_win(5,0,-5))
-  # print(p_win(0,5,-5))
-  # print("AGI vs POW, vs END")
-  # print(p_win(1,0,-1))
-  # print(p_win(1,-1,0))
-  # print("+POW, -AGI")
-  # for i in range(1,6):
-  #   print(p_win(-i,i,0))
-  #   print(p_win(-i,i,0,my_boons = ["overwhelm"]))
-
+  # print("=== Expected overkill ===")
   # for i in range(-4,5):
   #   print(i, expected_overkill(i))
-
-  # for (t,herb) in [("active", "fruit"), ("amper", "leaf"), ("damper", "root"), ("preservative", "resin")]:
-  #   for _ in range(3):
-  #     colors = random.sample({"red", "orange", "yellow", "green", "blue", "purple"}, 2)
-  #     print(random_name_flower(), herb+":", t+";", colors[0], colors[1])
-
-  # d=20
-  # def cardy(i):
-  #   return (13+i)/(13-i)
-  # def oppo(i):
-  #   return (d*(d+1) + 2*d*(i-1))/((d-i)*(d-i-1))
-  # for i in range(12):
-  #   print(i)
-  #   print(cardy(i), cardy(i+1)/cardy(i))
-  #   print(oppo(i), oppo(i+1)/oppo(i))
-
-  # for i in range(10):
-  #   print(i, p_win_monte_carlo(10000, -i, 0, 0, focus=default_focus, my_boons={"hypno"}))
+  # print(i, p_overkill(i))

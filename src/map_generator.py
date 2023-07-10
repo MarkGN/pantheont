@@ -1,8 +1,11 @@
 import base64
 import io
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from shapely.geometry import Point, Polygon
-import math, random, simplejson
+import math, random, simplejson, scipy
+from scipy.spatial import Delaunay
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import minimum_spanning_tree
 
 # TODO add lifespan?
 class Species:
@@ -55,6 +58,16 @@ def build_river(params={}):
   rev_pts.reverse()
   return pts + rev_pts
 
+# This should be like build-river, but more sophisticated.
+# Begin with a line; recursively, replace each segment with one bending left or right
+# by some amount
+def build_path(start, end, params={}):
+  sx,sy=start
+  ex,ey=end
+  num_kinks=3
+
+  pass
+
 # TODO factor stuff out, like creating trees
 # TODO So this is pretty cool, but it'd be nice to be able to say:
 # 1) I want grass, trees;
@@ -62,12 +75,10 @@ def build_river(params={}):
 # 3) I want a stream, which might even branch
 # ... and it'd be nice to wrap it in a separate function creating multiple terrains,
 # so that eg I could have a cave system
-# ... How would a cave look? These dense forests are open-ish, in that you can go in many directions but it's always hard going; a cave has a limited number of routes.
-# Maybe have multiple rooms, with twisting corridors between? How? Just have one or two bends? Plus maybe the odd dead end?
 def build_forest(params={}):
   sx,sy = size = params.get("size", (500,500))
   density = params.get("density", 1)
-  tree_thickness = params.get("tree-thick")
+  tree_thickness = params.get("tree-thick", 1.8)
   grass_color = (75,255,55)
   brown = (130, 130, 0)
   out = Image.new("RGB", size, brown)
@@ -117,10 +128,118 @@ def build_forest(params={}):
 
   return out, line_of_sight
 
+def build_cave(params):
+  # TODO much of this is shared boilerplate from build-forest and should be factored out
+  sx,sy = size = params.get("size", (5000,5000))
+  floor_color = (75,255,55)
+  brown = (130, 130, 0)
+  out = Image.new("RGB", size, brown)
+  d = ImageDraw.Draw(out)
+  border = 10
+  d.rectangle([(border, border), (sx-border,sy-border)], fill=floor_color)
+  # d.rectangle()
+  line_of_sight = []
+  room_rad_min = params.get("rrm",100)
+  room_rad_max = params.get("rrm",300)
+  sepsq = params.get("sep-sq", 500**2)
+  ppg = params.get("pix",1) # pixels per grid unit
+  
+  # So here's the plan: I generate my polygonal rooms and corridors; join with union;
+  # then draw outlines and VBL about the exterior and interiors.
+  # Question: I think I have a good idea how to generate individual rooms; how to decide
+  # which are connected to which?
+  # Suggestion: Delaunay triangulation, using the centres of each room.
+  # I do that, generate a minimum spanning tree, randomly delete some fraction of the
+  # other edges, then generate corridors along the other edges.
+  # For corridors, calculate the displacement vectors; perturb a few points; and at each
+  # point, shift left or right rand +/- width/2, 90 degrees.
+
+  room_centres = []
+  while len(room_centres) < (params.get("n-rooms", 5)):
+    rx,ry = (random.randint(room_rad_max, sx - room_rad_max), random.randint(room_rad_max, sy - room_rad_max))
+    if all([(rx-x)**2+(ry-y)**2 > sepsq for (x,y) in room_centres]):
+      room_centres.append((rx,ry))
+    
+  rooms = []
+  for (x,y) in room_centres:
+    n_pts = 12
+    room=[]
+    for i in range(n_pts):
+      theta = 2*math.pi*i/n_pts
+      mult = room_rad_min + random.random()*(room_rad_max-room_rad_min)
+      x1,y1 = x+mult*math.cos(theta), y+mult*math.sin(theta)
+      room.append((x1,y1))
+    room.append(room[0])
+    rooms.append(room)
+
+  # handle corridors
+  # first, create delaunay triangulation
+  simplices = Delaunay(room_centres).simplices
+  simplices = [sorted(s) for s in simplices]
+  paths = {(i,j) for simplex in simplices for i in simplex for j in simplex if i<j}
+  print(room_centres)
+  print(simplices)
+  print(paths)
+  # second, delete all long edges of obtuse triangles
+  def distsq(a,b):
+    (x1,y1)=room_centres[a]
+    (x2,y2)=room_centres[b]
+    return (x1-x2)**2+(y1-y2)**2
+  def remove_long_edge(s):
+    s.sort()
+    d0=distsq(s[1],s[2])
+    d1=distsq(s[0],s[2])
+    d2=distsq(s[0],s[1])
+    print(d0,d1,d2, s)
+    if d0>d1+d2:
+      paths.discard((s[1],s[2]))
+    if d1>d0+d2:
+      paths.discard((s[0],s[2]))
+    if d2>d0+d1:
+      paths.discard((s[0],s[1]))
+  for s in simplices:
+    remove_long_edge(s)
+  print("removed long", paths)
+
+  connection_graph = [[0 for _ in range(len(room_centres))] for _ in range(len(room_centres))]
+  for (i,j) in paths:
+    print(i,j, distsq(i,j))
+    connection_graph[i][j]=distsq(i,j)
+  mst = minimum_spanning_tree(connection_graph)
+  xs,ys=mst.nonzero()
+  indices = list(zip(xs,ys))
+  print(indices)
+  paths = {p for p in paths if p in indices or random.random()<0.5}
+  print(paths)
+  paths = {(room_centres[i],room_centres[j]) for (i,j) in paths}  
+
+
+
+
+  # polygon1 = Polygon([(0, 0), (1.1, 0), (0.1,0.1), (0,1.1)])
+  # polygon2 = Polygon([(1, 1), (1, 0), (0.9,0.9), (0,1)])
+  # union_polygon = polygon1.union(polygon2)
+  width = 10
+  wo2 = width/2-1
+  for room in rooms:
+    d.line(room, fill=(70,50,30), width=10)
+    for (x,y) in room:
+      d.ellipse([(x-wo2,y-wo2),(x+wo2,y+wo2)], fill=(70,50,30))
+    # d.polygon(room, outline=(255,0,0), width=1)
+    # line_of_sight.append([{"x":(x-tree.x_rad*oosqrt2)/ppg, "y":(y-tree.y_rad*oosqrt2)/ppg},{"x":(x+tree.x_rad*oosqrt2)/ppg, "y":(y+tree.y_rad*oosqrt2)/ppg},{"x":(x-tree.x_rad*oosqrt2)/ppg, "y":(y-tree.y_rad*oosqrt2)/ppg}])
+    # line_of_sight.append([{"x":(x-tree.x_rad*oosqrt2)/ppg, "y":(y+tree.y_rad*oosqrt2)/ppg},{"x":(x+tree.x_rad*oosqrt2)/ppg, "y":(y-tree.y_rad*oosqrt2)/ppg},{"x":(x-tree.x_rad*oosqrt2)/ppg, "y":(y+tree.y_rad*oosqrt2)/ppg}])
+  for p in paths:
+    print(p)
+    d.line(p, fill=(255,0,0),width=10)
+  line_of_sight.append([{"x":0,"y":0},{"x":0,"y":sy/ppg},{"x":sx/ppg,"y":sy/ppg},{"x":sx/ppg,"y":0},{"x":0,"y":0}])
+
+  return out, line_of_sight
+
 if __name__=="__main__":
   ppg = 50
   width = 2500
-  image, los = build_forest(params={"size":(width,width), "pix":ppg, "density":4, "tree-thick":1.8})
+  # image, los = build_forest(params={"size":(width,width), "pix":ppg, "density":4, "tree-thick":1.8})
+  image, los = build_cave(params={"size":(width,width), "pix":ppg})
   buffer = io.BytesIO()
   image.save(buffer, format="PNG")
   base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
