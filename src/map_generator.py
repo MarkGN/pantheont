@@ -62,11 +62,41 @@ def build_river(params={}):
 # Begin with a line; recursively, replace each segment with one bending left or right
 # by some amount
 def build_path(start, end, params={}):
-  sx,sy=start
-  ex,ey=end
-  num_kinks=3
-
-  pass
+  num_kinks=2
+  min_kink=0.3
+  max_kink=0.5
+  wo2=params.get("width",200)/2
+  path = [start, end]
+  for _ in range(num_kinks):
+    segments = [(path[i],path[i+1]) for i in range(len(path)-1)]
+    drns = [math.atan2((y2-y1),(x2-x1)) for ((x1,y1),(x2,y2)) in segments]
+    dists = [math.dist(s,e) for (s,e) in segments]
+    for i in range(len(segments)):
+      x,y = segments[i][0]
+      var = (1 if random.randint(0,1) else -1) * (min_kink + random.random()*(max_kink-min_kink))
+      drn = drns[i] + var
+      dist = dists[i] / math.cos(var) * (1+(random.random()-0.5)/10)
+      x += round(0.5 * dist * math.cos(drn))
+      y += round(0.5 * dist * math.sin(drn))
+      segments[i] = (segments[i][0]), (x,y)
+    path = [s for segment in segments for s in segment] + [end]
+  # recompute drns;
+  # for point in path, go point shifted perp to drn by wo2, then in other drn
+  drns = [None for i in range(len(path))]
+  for i in range(len(path)):
+    (x1,y1) = path[max(0,i-1)]
+    (x2,y2) = path[min(len(path)-1,i+1)]
+    drns[i]=math.atan2(y2-y1,x2-x1)
+  # return path
+  poly = [None for i in range(2*len(path)+1)]
+  for i in range(len(path)):
+    x,y=path[i]
+    poly[i] = x+wo2*-math.sin(drns[i]), y+wo2*math.cos(drns[i])
+    poly[2*len(path)-1-i] = x+wo2*math.sin(drns[i]), y+wo2*-math.cos(drns[i])
+    # poly[i] = path[i]
+    # poly[2*len(path)-1-i] = path[i]
+  poly[-1]=poly[0]
+  return poly
 
 # TODO factor stuff out, like creating trees
 # TODO So this is pretty cool, but it'd be nice to be able to say:
@@ -130,14 +160,14 @@ def build_forest(params={}):
 
 def build_cave(params):
   # TODO much of this is shared boilerplate from build-forest and should be factored out
+  # TODO add a pathway from a room to outside. 
   sx,sy = size = params.get("size", (5000,5000))
-  floor_color = (75,255,55)
+  floor_color = (155,155,155)
   brown = (130, 130, 0)
   out = Image.new("RGB", size, brown)
   d = ImageDraw.Draw(out)
-  border = 10
+  border = 50
   d.rectangle([(border, border), (sx-border,sy-border)], fill=floor_color)
-  # d.rectangle()
   line_of_sight = []
   room_rad_min = params.get("rrm",100)
   room_rad_max = params.get("rrm",300)
@@ -146,8 +176,6 @@ def build_cave(params):
   
   # So here's the plan: I generate my polygonal rooms and corridors; join with union;
   # then draw outlines and VBL about the exterior and interiors.
-  # Question: I think I have a good idea how to generate individual rooms; how to decide
-  # which are connected to which?
   # Suggestion: Delaunay triangulation, using the centres of each room.
   # I do that, generate a minimum spanning tree, randomly delete some fraction of the
   # other edges, then generate corridors along the other edges.
@@ -172,14 +200,14 @@ def build_cave(params):
     room.append(room[0])
     rooms.append(room)
 
+  # Add a 'room' that's outside, to force a path to it
+  (x,y) = [(-sx,sy/2),(-sy,sx/2),(2*sx,sy/2),(2*sy,sx/2)][random.randint(0,3)]
+  room_centres.append((x,y))
   # handle corridors
   # first, create delaunay triangulation
   simplices = Delaunay(room_centres).simplices
   simplices = [sorted(s) for s in simplices]
   paths = {(i,j) for simplex in simplices for i in simplex for j in simplex if i<j}
-  print(room_centres)
-  print(simplices)
-  print(paths)
   # second, delete all long edges of obtuse triangles
   def distsq(a,b):
     (x1,y1)=room_centres[a]
@@ -190,7 +218,6 @@ def build_cave(params):
     d0=distsq(s[1],s[2])
     d1=distsq(s[0],s[2])
     d2=distsq(s[0],s[1])
-    print(d0,d1,d2, s)
     if d0>d1+d2:
       paths.discard((s[1],s[2]))
     if d1>d0+d2:
@@ -199,38 +226,27 @@ def build_cave(params):
       paths.discard((s[0],s[1]))
   for s in simplices:
     remove_long_edge(s)
-  print("removed long", paths)
 
   connection_graph = [[0 for _ in range(len(room_centres))] for _ in range(len(room_centres))]
   for (i,j) in paths:
-    print(i,j, distsq(i,j))
     connection_graph[i][j]=distsq(i,j)
   mst = minimum_spanning_tree(connection_graph)
   xs,ys=mst.nonzero()
   indices = list(zip(xs,ys))
-  print(indices)
-  paths = {p for p in paths if p in indices or random.random()<0.5}
-  print(paths)
-  paths = {(room_centres[i],room_centres[j]) for (i,j) in paths}  
+  paths = {p for p in paths if p in indices or random.random()<0.3}
+  paths = {(room_centres[i],room_centres[j]) for (i,j) in paths}
 
+  paths = [build_path(s,e) for (s,e) in paths]
 
-
-
-  # polygon1 = Polygon([(0, 0), (1.1, 0), (0.1,0.1), (0,1.1)])
-  # polygon2 = Polygon([(1, 1), (1, 0), (0.9,0.9), (0,1)])
-  # union_polygon = polygon1.union(polygon2)
-  width = 10
-  wo2 = width/2-1
-  for room in rooms:
-    d.line(room, fill=(70,50,30), width=10)
-    for (x,y) in room:
-      d.ellipse([(x-wo2,y-wo2),(x+wo2,y+wo2)], fill=(70,50,30))
-    # d.polygon(room, outline=(255,0,0), width=1)
-    # line_of_sight.append([{"x":(x-tree.x_rad*oosqrt2)/ppg, "y":(y-tree.y_rad*oosqrt2)/ppg},{"x":(x+tree.x_rad*oosqrt2)/ppg, "y":(y+tree.y_rad*oosqrt2)/ppg},{"x":(x-tree.x_rad*oosqrt2)/ppg, "y":(y-tree.y_rad*oosqrt2)/ppg}])
-    # line_of_sight.append([{"x":(x-tree.x_rad*oosqrt2)/ppg, "y":(y+tree.y_rad*oosqrt2)/ppg},{"x":(x+tree.x_rad*oosqrt2)/ppg, "y":(y-tree.y_rad*oosqrt2)/ppg},{"x":(x-tree.x_rad*oosqrt2)/ppg, "y":(y+tree.y_rad*oosqrt2)/ppg}])
-  for p in paths:
-    print(p)
-    d.line(p, fill=(255,0,0),width=10)
+  all_areas = Polygon([])
+  for poly in rooms+paths:
+    all_areas = all_areas.union(Polygon(poly))
+  
+  d.line(all_areas.exterior.coords,fill=(70,50,30),width=10)
+  for p in all_areas.interiors:
+    d.line(p.coords,fill=(50,40,30),width=10)
+    line_of_sight.append([{"x":(x/ppg),"y":(y/ppg)} for (x,y) in p.coords])
+  line_of_sight.append([{"x":(x/ppg),"y":(y/ppg)} for (x,y) in all_areas.exterior.coords])
   line_of_sight.append([{"x":0,"y":0},{"x":0,"y":sy/ppg},{"x":sx/ppg,"y":sy/ppg},{"x":sx/ppg,"y":0},{"x":0,"y":0}])
 
   return out, line_of_sight
@@ -239,7 +255,7 @@ if __name__=="__main__":
   ppg = 50
   width = 2500
   # image, los = build_forest(params={"size":(width,width), "pix":ppg, "density":4, "tree-thick":1.8})
-  image, los = build_cave(params={"size":(width,width), "pix":ppg})
+  image, los = build_cave(params={"size":(width,width), "pix":ppg, "n-rooms":9})
   buffer = io.BytesIO()
   image.save(buffer, format="PNG")
   base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
