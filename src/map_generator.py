@@ -61,25 +61,30 @@ def build_river(params={}):
 # This should be like build-river, but more sophisticated.
 # Begin with a line; recursively, replace each segment with one bending left or right
 # by some amount
+# TODO if I turn up the kinkiness, it self-intersects.
+# So, what if I build it up through poly unionification?
 def build_path(start, end, params={}):
-  num_kinks=2
-  min_kink=0.3
-  max_kink=0.5
-  wo2=params.get("width",200)/2
+  num_kinks=params.get("kinks", 2) # actually log2 of this, roughly
+  min_kink=0.5
+  max_kink=0.7
+  wo2=params.get("width",100)/2
   path = [start, end]
+  kinks = [0]
   for _ in range(num_kinks):
     segments = [(path[i],path[i+1]) for i in range(len(path)-1)]
     drns = [math.atan2((y2-y1),(x2-x1)) for ((x1,y1),(x2,y2)) in segments]
     dists = [math.dist(s,e) for (s,e) in segments]
     for i in range(len(segments)):
       x,y = segments[i][0]
-      var = (1 if random.randint(0,1) else -1) * (min_kink + random.random()*(max_kink-min_kink))
-      drn = drns[i] + var
-      dist = dists[i] / math.cos(var) * (1+(random.random()-0.5)/10)
+      k = (1 if random.randint(0,1) else -1) * (min_kink + random.random()*(max_kink-min_kink))
+      kinks[i] = kink = (k+kinks[i])/2
+      drn = drns[i] + kink
+      dist = dists[i] / math.cos(kink) * (1+(random.random()-0.5)/10)
       x += round(0.5 * dist * math.cos(drn))
       y += round(0.5 * dist * math.sin(drn))
       segments[i] = (segments[i][0]), (x,y)
     path = [s for segment in segments for s in segment] + [end]
+    kinks = [k for k in kinks for _ in range(2)]
   # recompute drns;
   # for point in path, go point shifted perp to drn by wo2, then in other drn
   drns = [None for i in range(len(path))]
@@ -87,14 +92,11 @@ def build_path(start, end, params={}):
     (x1,y1) = path[max(0,i-1)]
     (x2,y2) = path[min(len(path)-1,i+1)]
     drns[i]=math.atan2(y2-y1,x2-x1)
-  # return path
   poly = [None for i in range(2*len(path)+1)]
   for i in range(len(path)):
     x,y=path[i]
     poly[i] = x+wo2*-math.sin(drns[i]), y+wo2*math.cos(drns[i])
     poly[2*len(path)-1-i] = x+wo2*math.sin(drns[i]), y+wo2*-math.cos(drns[i])
-    # poly[i] = path[i]
-    # poly[2*len(path)-1-i] = path[i]
   poly[-1]=poly[0]
   return poly
 
@@ -163,10 +165,12 @@ def build_cave(params):
   # TODO add a pathway from a room to outside. 
   sx,sy = size = params.get("size", (5000,5000))
   floor_color = (155,155,155)
+  wall_color=(50,40,30)
   brown = (130, 130, 0)
   out = Image.new("RGB", size, brown)
   d = ImageDraw.Draw(out)
   border = 50
+  wall_thick=25
   d.rectangle([(border, border), (sx-border,sy-border)], fill=floor_color)
   line_of_sight = []
   room_rad_min = params.get("rrm",100)
@@ -200,14 +204,16 @@ def build_cave(params):
     room.append(room[0])
     rooms.append(room)
 
-  # Add a 'room' that's outside, to force a path to it
-  (x,y) = [(-sx,sy/2),(-sy,sx/2),(2*sx,sy/2),(2*sy,sx/2)][random.randint(0,3)]
-  room_centres.append((x,y))
+  # Add 'rooms' that are outside, to create entrance paths
+  n_entrances = params.get("n-entrances",4)
+  coords = random.sample([(-sx,sy/2),(-sy,sx/2),(2*sx,sy/2),(2*sy,sx/2)],n_entrances)
+  room_centres += coords
+  rooms += [[(0,0),(0,0),(0,0),(0,0)] for _ in coords] # TODO ugly kludge for flooding
   # handle corridors
   # first, create delaunay triangulation
   simplices = Delaunay(room_centres).simplices
   simplices = [sorted(s) for s in simplices]
-  paths = {(i,j) for simplex in simplices for i in simplex for j in simplex if i<j}
+  path_indices = {(i,j) for simplex in simplices for i in simplex for j in simplex if i<j}
   # second, delete all long edges of obtuse triangles
   def distsq(a,b):
     (x1,y1)=room_centres[a]
@@ -219,36 +225,42 @@ def build_cave(params):
     d1=distsq(s[0],s[2])
     d2=distsq(s[0],s[1])
     if d0>d1+d2:
-      paths.discard((s[1],s[2]))
+      path_indices.discard((s[1],s[2]))
     if d1>d0+d2:
-      paths.discard((s[0],s[2]))
+      path_indices.discard((s[0],s[2]))
     if d2>d0+d1:
-      paths.discard((s[0],s[1]))
+      path_indices.discard((s[0],s[1]))
   for s in simplices:
     remove_long_edge(s)
 
   connection_graph = [[0 for _ in range(len(room_centres))] for _ in range(len(room_centres))]
-  for (i,j) in paths:
+  for (i,j) in path_indices:
     connection_graph[i][j]=distsq(i,j)
   mst = minimum_spanning_tree(connection_graph)
   xs,ys=mst.nonzero()
   indices = list(zip(xs,ys))
-  paths = {p for p in paths if p in indices or random.random()<0.3}
-  paths = {(room_centres[i],room_centres[j]) for (i,j) in paths}
+  path_indices = {p for p in path_indices if p in indices or random.random()<0.3}
+  path_coords = {(room_centres[i],room_centres[j]) for (i,j) in path_indices}
 
-  paths = [build_path(s,e) for (s,e) in paths]
+  path_coords = {(s,e):build_path(s,e,{"kinks":3,"width":100}) for (s,e) in path_coords}
 
   all_areas = Polygon([])
-  for poly in rooms+paths:
+  for poly in list(path_coords.values())+rooms:
     all_areas = all_areas.union(Polygon(poly))
   
-  d.line(all_areas.exterior.coords,fill=(70,50,30),width=10)
-  for p in all_areas.interiors:
-    d.line(p.coords,fill=(50,40,30),width=10)
+  outlines = list(all_areas.interiors)+[all_areas.exterior]
+  flooded_room_ixes = [r for r in range(len(rooms)) if random.random() < params.get("flood",0.5)]
+  flooded_path_ixes = [(i,j) for (i,j) in path_indices if i in flooded_room_ixes and j in flooded_room_ixes]
+  for i in flooded_room_ixes:
+    d.polygon(rooms[i],fill=(0,0,255))
+  for (i,j) in flooded_path_ixes:
+    d.polygon(path_coords[(room_centres[i],room_centres[j])],fill=(0,0,255))
+  for p in outlines:
+    d.line(p.coords,fill=wall_color,width=wall_thick)
+    for x,y in p.coords:
+      d.ellipse([(x-wall_thick/2,y-wall_thick/2),(x+wall_thick/2,y+wall_thick/2)],fill=wall_color)
     line_of_sight.append([{"x":(x/ppg),"y":(y/ppg)} for (x,y) in p.coords])
-  line_of_sight.append([{"x":(x/ppg),"y":(y/ppg)} for (x,y) in all_areas.exterior.coords])
   line_of_sight.append([{"x":0,"y":0},{"x":0,"y":sy/ppg},{"x":sx/ppg,"y":sy/ppg},{"x":sx/ppg,"y":0},{"x":0,"y":0}])
-
   return out, line_of_sight
 
 if __name__=="__main__":
@@ -259,7 +271,7 @@ if __name__=="__main__":
   buffer = io.BytesIO()
   image.save(buffer, format="PNG")
   base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
-  f = open("../../../img.uvtt", "w")
+  f = open("../../../MapTool/img.uvtt", "w")
   map_json = {"software": "Pantheont",
     "creator": "Mark Norrish",
     "format": "0.3",
