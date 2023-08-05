@@ -255,19 +255,23 @@ def build_cave(params):
     d.polygon(rooms[i],fill=(0,0,255))
   for (i,j) in flooded_path_ixes:
     d.polygon(path_coords[(room_centres[i],room_centres[j])],fill=(0,0,255))
+  lights = []
+  for i in range(len(rooms)):
+    if not i in flooded_room_ixes:
+      lights.append(room_centres[i])
   for p in outlines:
     d.line(p.coords,fill=wall_color,width=wall_thick)
     for x,y in p.coords:
       d.ellipse([(x-wall_thick/2,y-wall_thick/2),(x+wall_thick/2,y+wall_thick/2)],fill=wall_color)
     line_of_sight.append([{"x":(x/ppg),"y":(y/ppg)} for (x,y) in p.coords])
   line_of_sight.append([{"x":0,"y":0},{"x":0,"y":sy/ppg},{"x":sx/ppg,"y":sy/ppg},{"x":sx/ppg,"y":0},{"x":0,"y":0}])
-  return out, line_of_sight
+  return out, line_of_sight, lights
 
 if __name__=="__main__":
   ppg = 50
   width = 2500
   # image, los = build_forest(params={"size":(width,width), "pix":ppg, "density":4, "tree-thick":1.8})
-  image, los = build_cave(params={"size":(width,width), "pix":ppg, "n-rooms":9})
+  image, los, lights = build_cave(params={"size":(width,width), "pix":ppg, "n-rooms":9})
   buffer = io.BytesIO()
   image.save(buffer, format="PNG")
   base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
@@ -291,8 +295,17 @@ if __name__=="__main__":
       "environment": {
       "baked_lighting": False
     },
-    "lights":
-      [],
+    "lights": [
+      {
+      "position": {
+        "x": x/ppg,
+        "y": y/ppg
+      },
+      "range": 5.0,
+      "intensity": 20.0,
+      "color": "ff563D00",
+      "shadows": True
+    } for (x,y) in lights],
     "image": base64_image
   }
   f.write(simplejson.dumps(map_json, indent=2))

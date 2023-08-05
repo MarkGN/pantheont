@@ -1,0 +1,4 @@
+[foreach(id,getSelected()),code:{
+	[h:switchToken(id)]
+	[h:makeHuman()]
+}]

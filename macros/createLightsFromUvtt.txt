@@ -1,9 +1,10 @@
+[h:"Make sure to deselect 'apply to selected tokens' under the Details menu!"]
+
 [h: names=getTokenNames(",")]
-[FOREACH(name, names), code: {
+[h,FOREACH(name, names), code: {
 	[h:test=startsWith(name,"light")]
 	[h,if(test),code:{
-		[h:impersonate(name)]
-		[h: setLight("D20", "Lamp - 15", 1)]
+		[h:setLight("D20", "Candle - 5", 1, name)]
 	}
 	]
 }

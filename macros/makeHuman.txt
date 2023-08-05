@@ -1,0 +1,16 @@
+[h:"Randomly assign attributes"]
+[h:attrVals="3,4,5,6,7"]
+[foreach(attr,attributes()),code:{
+		[h:index=d(listCount(attrVals))-1]
+		[h:setProperty(attr,listGet(attrVals,index))]
+		[h:attrVals=listDelete(attrVals,index)]
+}]
+[h:"Assign skills, very arbitrarily"]
+[foreach(skill,skills()),code:{
+  [h:setProperty(skill,1)]
+}]
+[h:focus=9]
+[h:maxFocus=9]
+[h:weapon="shortSword"]
+[h:rangedWeapon="sling"]
+[h:setBarVisible("health",1)]

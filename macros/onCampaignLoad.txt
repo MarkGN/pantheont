@@ -1,0 +1,5 @@
+[h:udfs=getMacros()]
+[h:udfs=listDelete(udfs,listFind(udfs,"onCampaignLoad"))]
+[foreach(udf,udfs),CODE:{
+		{defineFunction(udf, udf+"@"+getName())}
+}]

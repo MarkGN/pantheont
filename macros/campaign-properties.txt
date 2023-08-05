@@ -1,0 +1,25 @@
+Not actually a macro; TODO move elsewhere
+
+Under Lights, add:
+my-torch: circle 5#ffffff+100 10#000000+10
+
+Under Tokens, add:
+*agility (AGI):5
+*power (POW):5
+*endurance (END):5
+*method (MET):5
+*mask (MAS):5
+athletics:1
+fight:1
+knowledge:1
+magic:1
+stealth:1
+vigilance:1
+focus:9
+maxFocus:9
+*weapon
+*rangedWeapon
+boons
+conditions
+*@focus/max:{focus}/{maxFocus}
+*@combat:{getCombat()}
