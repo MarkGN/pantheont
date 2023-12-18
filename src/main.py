@@ -70,7 +70,7 @@ def p_win(combat_adv, pow_adv, end_adv, focus=default_focus, my_boons={}, his_bo
 def p_win_v_trapper(combat_adv, pow_adv, end_adv, focus=default_focus, die=die_sides):
   my_focus, his_focus = focus, focus
   p_win_clash = min(1, max(0, (die//2+combat_adv)/die))
-  trap_disadvantage = 4
+  trap_disadvantage = 3
   p_win_clash_trapped = min(1, max(0, (die//2+(combat_adv-trap_disadvantage))/die))
   odds_matrix = [[[0 for i in range(his_focus+1)]] + [([1]+[None for i in range(his_focus)]) for j in range(my_focus)] for trapped in range(2)]
   for i in range(1,my_focus+1):

@@ -1,0 +1,11 @@
+[h:overkill=arg(0)]
+[if(overkill>0),code:{
+	{getName()} is knocked down and takes {overkill} injury!
+  [h:inj=getStrProp(conditions,"injury",0)]
+  [h:conditions=setStrProp(conditions,"injury",overkill+inj)]
+  [h:setConditionPenalty()]
+};code:{
+  {getName()} is knocked down!
+}]
+[h:setState('incapacitated',1)]
+[h:setConditionPenalty()]

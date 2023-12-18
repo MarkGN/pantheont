@@ -13,23 +13,23 @@
   "isCrit|0|crit|CHECK",
   "isVsCrit|0|vs crit|CHECK",
   "isShove|0|shove|CHECK",
-  "isVsShove|0|vs shove|CHECK",
+  "isVsShove|0|vs shove|CHECK"
 )]
 [h:"We aren't handling restraints, since those are a bit fiddly"]
 [h:abort(status)]
 [h:switchToken(actor)]
-[h:actorCombat=if(ranged<=1,getRanged(),0)+if(ranged>=1,getMelee(),0)+advantage]
+[h:actorCombat=getCombat(actor)+if(range<=1,json.get(getWeapon(getProperty('weapon')),'bonus'),0)+if(range>=1,json.get(getWeapon(getProperty('rangedWeapon')),'bonus'),0)]
 [h:switchToken(target)]
-[h:targetCombat=if(ranged<=1,getRanged(),0)+if(ranged>=1,getMelee(),0)]
+[h:targetCombat=getCombat(target)+if(range<=1,json.get(getWeapon(getProperty('weapon')),'bonus'),0)+if(range>=1,json.get(getWeapon(getProperty('rangedWeapon')),'bonus'),0)]
 [h:switchToken(actor)]
 [h:checkResult=check(actorCombat,targetCombat)]
-[h:checkSuccess=json.get(checkResult,'success')]
+[h:checkSuccess=json.get(checkResult,'pass')]
 [h:winner=if(checkSuccess,actor,target)]
 [h:loser=if(checkSuccess,target,actor)]
 [h:crit=or(and(eq(actor,winner),isCrit),and(eq(target,winner),isVsCrit))]
 [h:pr=powRoll(getProperty('power',winner),getProperty('endurance',loser))]
 [h:damage=json.get(pr,'damage')*(crit+1)]
-check rolled <b>{json.get(checkResult,"die")}</b>, damage rolled <b>{json.get(pr,"roll")}</b>;
+{getName(actor)} rolled <b>{json.get(checkResult,"roll")}</b> totalling <b>{json.get(checkResult,"total")}</b> vs target {targetCombat+10}<b></b>, damage rolled <b>{json.get(pr,"roll")}</b>;
 [h:switchToken(loser)]
 <b>{getName(winner)}</b> wins the clash and inflicts <b>{damage}</b> damage!
 {applyHit(damage,pr)}

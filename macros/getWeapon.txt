@@ -1,0 +1,38 @@
+[switch(arg(0)),code:
+case "bolas":{
+	[r:json.fromStrProp("bonus=1;restrain=1")]
+};
+case "dagger":{
+	[r:json.fromStrProp("bonus=2")]
+};
+case "longSword":{
+	[r:json.fromStrProp("bonus=7")]
+};
+case "net":{
+	[r:json.fromStrProp("bonus=3;restrain=1")]
+};
+case "shortBow":{
+	[r:json.fromStrProp("bonus=5")]
+};
+case "shortSword":{
+	[r:json.fromStrProp("bonus=4")]
+};
+case "sling":{
+	[r:json.fromStrProp("bonus=2")]
+};
+case "pyro":{
+	[r:json.fromStrProp("bonus=3;caster=1")]
+};
+case "pyroRanged":{
+	[r:json.fromStrProp("bonus=2;caster=1")]
+};
+case "whip":{
+	[r:json.fromStrProp("bonus=3;restrain=1")]
+};
+case "":{
+	[r:json.fromStrProp("bonus=0")]
+};
+default:{
+	I don{'&#39;'}t recognise your weapon, defaulting to unarmed.
+	[r:json.fromStrProp("bonus=0")]
+}]

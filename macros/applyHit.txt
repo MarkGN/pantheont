@@ -1,0 +1,5 @@
+[h:changeFocus(-arg(0))]
+[if(le(focus,0)),code:{
+	{incapacitate(-focus)}
+	[h:setFocus(0)]
+}]

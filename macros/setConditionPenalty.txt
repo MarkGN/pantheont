@@ -1,0 +1,1 @@
+[h:conditions=setStrProp(conditions,"penalty",3*getState("restrained")+getStrProp(conditions,"injury",0)+getStrProp(conditions,"fatigue",0))]

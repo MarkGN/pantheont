@@ -1,0 +1,6 @@
+[h,foreach(id,getSelected()),code:{
+	[h:switchToken(id)]
+	[h:setFocus(maxFocus)]
+	[h:setAllStates(0)]
+	[h:setConditionPenalty()]
+}]

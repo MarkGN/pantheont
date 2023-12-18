@@ -1,0 +1,6 @@
+[h:modifier=arg(0)]
+[h:target=arg(1)]
+[h:roll=d20]
+[h:mod=roll+modifier]
+[h:pass=mod>target+10]
+[r:json.fromStrProp(strformat("roll=%{roll};total=%{mod};pass=%{pass}"))]

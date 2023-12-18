@@ -1,10 +1,9 @@
 import base64
-import io
+import io, os
 from PIL import Image, ImageDraw
 from shapely.geometry import Point, Polygon
-import math, random, simplejson, scipy
+import math, random, simplejson
 from scipy.spatial import Delaunay
-from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 
 # TODO add lifespan?
@@ -64,9 +63,9 @@ def build_river(params={}):
 # TODO if I turn up the kinkiness, it self-intersects.
 # So, what if I build it up through poly unionification?
 def build_path(start, end, params={}):
-  num_kinks=params.get("kinks", 2) # actually log2 of this, roughly
-  min_kink=0.5
-  max_kink=0.7
+  num_kinks=params.get("kinks", 2) # actually 2^this, roughly
+  min_kink=params.get("min-kink", 0.5)
+  max_kink=params.get("max-kink", 0.7)
   wo2=params.get("width",100)/2
   path = [start, end]
   kinks = [0]
@@ -117,7 +116,6 @@ def build_forest(params={}):
   d = ImageDraw.Draw(out)
   border = 10
   d.rectangle([(border, border), (sx-border,sy-border)], fill=grass_color)
-  # d.rectangle()
   line_of_sight = []
   ppg = params.get("pix",1) # pixels per grid unit
   oosqrt2 = 2**-0.5
@@ -148,7 +146,8 @@ def build_forest(params={}):
         del trees[coord]
 
   # add a river
-  river = build_river({"map-width":sx})
+  # river = build_river({"map-width":sx})
+  river = build_path((-sx/40,random.randint(sy/4,3*sy/4)),(sx*41/4,random.randint(sy/4,3*sy/4)),{"kinks":6,"width":180, "min-kink":0.2, "max-kink":0.3})
   d.polygon(river, fill=(0,0,255), outline=(0,0,0))
   trees = {(px,py):value for (px,py),value in trees.items() if not is_in_river(px,py,river)}
 
@@ -270,12 +269,16 @@ def build_cave(params):
 if __name__=="__main__":
   ppg = 50
   width = 2500
-  # image, los = build_forest(params={"size":(width,width), "pix":ppg, "density":4, "tree-thick":1.8})
-  image, los, lights = build_cave(params={"size":(width,width), "pix":ppg, "n-rooms":9})
+  key = ["forest", "cave"][0]
+  lights = []
+  if key == "forest":
+    image, los = build_forest(params={"size":(width,width), "pix":ppg, "density":4, "tree-thick":1.8})
+  elif key == "cave":
+    image, los, lights = build_cave(params={"size":(width,width), "pix":ppg, "n-rooms":9})
   buffer = io.BytesIO()
   image.save(buffer, format="PNG")
   base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
-  f = open("../../../MapTool/img.uvtt", "w")
+  f = open(os.path.expanduser("~") + "/MapTool/"+key+".uvtt", "w")
   map_json = {"software": "Pantheont",
     "creator": "Mark Norrish",
     "format": "0.3",

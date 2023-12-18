@@ -1,0 +1,6 @@
+[h:pow=arg(0)]
+[h:end=arg(1)]
+[h,if(argCount()>2):bonus=arg(2);bonus=0]
+[h:roll=d6]
+[h:damage=max(ge(bonus,0),pow-end+roll)+bonus]
+[r:json.fromStrProp(strPropFromVars("damage,roll"))]
