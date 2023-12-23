@@ -1,0 +1,11 @@
+[h:status=input(
+	"attr|"+attributes()+"|attribute|LIST|SELECT=0 VALUE=STRING",
+    "skill|"+skills()+"|attribute|LIST|SELECT=0 VALUE=STRING",
+    "bonus|0|situational bonus",
+    "target|0|target"
+)]
+[h:abort(status)]
+[h:ch=check(getProperty(attr)+getProperty(skill)+bonus, target)]
+[h:success=json.get(ch,"pass")]
+[h:success=if(success,"succeeded","failed")]
+Checked {attr}+{skill}+{bonus} vs {target}, rolled {json.get(ch,"roll")}, and {success}.

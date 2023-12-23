@@ -1,6 +1,9 @@
-[h,foreach(id,getSelected()),code:{
+[foreach(id,getSelected()),code:{
 	[h:switchToken(id)]
 	[h:setFocus(maxFocus)]
 	[h:setAllStates(0)]
+	[h:conditions=setStrProp(conditions,"injury",0)]
+	[h:conditions=setStrProp(conditions,"fatigue",0)]
 	[h:setConditionPenalty()]
+	{getName(id)} restored.
 }]

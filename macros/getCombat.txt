@@ -1,0 +1,4 @@
+[h,if(argCount()>0):tok=arg(0);tok=getSelected()]
+[h:agi=number(getProperty('agility', tok))]
+[h:fig=number(getProperty('fight', tok))]
+[r:agi+fig+if(armour,armour,getBoonBonus("combatCaster")+getBoonBonus("gymnast"))-getStrProp(conditions,"penalty",0)]

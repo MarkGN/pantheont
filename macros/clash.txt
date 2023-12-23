@@ -8,14 +8,17 @@
 [h:incap=or(getState('incapacitated'),getState('incapacitated',target))]
 [h:assert(not(incap),'You can&#39;t clash with someone already incapacitated.',0)]
 [h:status=input(
+  "junkVar| "+getTokenImage("",actor)+"|actor|LABEL|ICON=TRUE|ICONSIZE=100|TEXT=FALSE",
+  "junkVar| "+getTokenImage("",target)+"|target|LABEL|ICON=TRUE|ICONSIZE=100|TEXT=FALSE",
 	"advantage|0|net circumstantial bonuses",
   "range|melee only,ranged into melee,ranged only|Combat range|RADIO|ORIENT=H SELECT=0",
   "isCrit|0|crit|CHECK",
   "isVsCrit|0|vs crit|CHECK",
   "isShove|0|shove|CHECK",
-  "isVsShove|0|vs shove|CHECK"
+  "isVsShove|0|vs shove|CHECK",
+  "isRestrain|"+json.get(getWeapon(getProperty('weapon')),'net')+"|restrains|CHECK",
+  "isVsRestrain|"+json.get(getWeapon(getProperty('weapon',target)),'restrains')+"|vs restrains|CHECK"
 )]
-[h:"We aren't handling restraints, since those are a bit fiddly"]
 [h:abort(status)]
 [h:switchToken(actor)]
 [h:actorCombat=getCombat(actor)+if(range<=1,json.get(getWeapon(getProperty('weapon')),'bonus'),0)+if(range>=1,json.get(getWeapon(getProperty('rangedWeapon')),'bonus'),0)]
@@ -26,10 +29,21 @@
 [h:checkSuccess=json.get(checkResult,'pass')]
 [h:winner=if(checkSuccess,actor,target)]
 [h:loser=if(checkSuccess,target,actor)]
-[h:crit=or(and(eq(actor,winner),isCrit),and(eq(target,winner),isVsCrit))]
-[h:pr=powRoll(getProperty('power',winner),getProperty('endurance',loser))]
-[h:damage=json.get(pr,'damage')*(crit+1)]
-{getName(actor)} rolled <b>{json.get(checkResult,"roll")}</b> totalling <b>{json.get(checkResult,"total")}</b> vs target {targetCombat+10}<b></b>, damage rolled <b>{json.get(pr,"roll")}</b>;
-[h:switchToken(loser)]
-<b>{getName(winner)}</b> wins the clash and inflicts <b>{damage}</b> damage!
-{applyHit(damage,pr)}
+[h:restrains=or(and(isRestrain,checkSuccess),and(isVsRestrain,1-checkSuccess))]
+[if(restrains),code:{
+  {getName(actor)} rolled <b>{json.get(checkResult,"roll")}</b> totalling <b>{json.get(checkResult,"total")}</b> vs target {targetCombat+10}<b></b>;
+  [h:switchToken(loser)]
+  <b>{getName(winner)}</b> wins the clash and restrains <b>{getName(loser)}</b>!
+  [h:setState("restrained",1)]
+};{
+  [h:pr=powRoll(getProperty('power',winner),getProperty('endurance',loser))]
+  [h:crit=or(and(eq(actor,winner),isCrit),and(eq(target,winner),isVsCrit))]
+  [h:damage=json.get(pr,'damage')*(crit+1)]
+  {getName(actor)} rolled <b>{json.get(checkResult,"roll")}</b> totalling <b>{json.get(checkResult,"total")}</b> vs target {targetCombat+10}<b></b>, damage rolled <b>{json.get(pr,"roll")}</b>;
+  [h:switchToken(loser)]
+  <b>{getName(winner)}</b> wins the clash{if(crit," with a crit","")} and inflicts <b>{damage}</b> damage!
+  {applyHit(damage,pr)}
+}]
+[h:setConditionPenalty()]
+
+[h:"It'd be nice to handle AP weapons next. each actor should get a bonus equal to min(sum of relevant weapons' AP, opponent.armour)"]
