@@ -1,10 +1,22 @@
-[h:"Make sure to deselect 'apply to selected tokens' under the Details menu!"]
+[h:info=getInfo("campaign")]
+[h:lights=json.get(info,"light sources")]
+[h:ls=""]
+[h,foreach(group,lights),code:{
+	[h:groupDash=json.get(lights,group)]
+	[foreach(light,groupDash),code:{
+		[h:ls=listAppend(ls,group+","+json.get(light,"name"),";")]
+	}]
+}]
+[h:status=input("light|"+ls+"|which light|LIST|SELECT=0 VALUE=STRING DELIMITER=;"
+)]
+[h:choice=stringToList(light,",")]
 
-[h: names=getTokenNames(",")]
+[h: names=getTokenNames()]
 [h,FOREACH(name, names), code: {
 	[h:test=startsWith(name,"light")]
-	[h,if(test),code:{
-		[h:setLight("D20", "Candle - 5", 1, name)]
+	[if(test),code:{
+		[h:clearLights(name)]
+		[h:setLight(listGet(choice,0), listGet(choice,1), 1, name)]
 	}
 	]
 }
